@@ -1,61 +1,44 @@
------------------------------------------------------------------------------------------------------------------------------------------
--- VRP
------------------------------------------------------------------------------------------------------------------------------------------
-local Proxy = module("vrp","lib/Proxy")
-vRP = Proxy.getInterface("vRP")
------------------------------------------------------------------------------------------------------------------------------------------
+-- JGN Development - JRP Tackle Script
+-- Developed for JRP Server
+
+-- Tackle system cooldown timer
 local tackleSystem = 0
-local anim = "mic_2_ig_11_intro_goon"
-local dict = "missmic2ig_11"
-local anim2 = "mic_2_ig_11_intro_p_one"
------------------------------------------------------------------------------------------------------------------------------------------
--- Loop
------------------------------------------------------------------------------------------------------------------------------------------
+
+-- Animation data for tackle system
+local anim = "mic_2_ig_11_intro_goon"     -- Tackler animation
+local dict = "missmic2ig_11"               -- Animation dictionary
+local anim2 = "mic_2_ig_11_intro_p_one"   -- Target animation
+
+-- Main tackle detection loop
 Citizen.CreateThread(function()
 	while true do
-		local timeDistance = 100
+		local timeDistance = 100  -- Default wait time when not running
 		local ped = PlayerPedId()
-		local pedInFront = GetPlayerPed(plyServerId ~= 0 and plyServerId or GetClosestPlayer2())
-	
 		
+		-- Check if player is running/sprinting and able to tackle
 		if (IsPedRunning(ped) or IsPedSprinting(ped) and IsPedJumping(ped)) and tackleSystem <= 0 and not IsPedSwimming(ped) then
-			timeDistance = 0
+			timeDistance = 0  -- Reduce wait time when ready to tackle
 
+			-- Check for E key press (control 38)
 			if IsControlJustPressed(1,38) then
-				local userStatus = nearestPlayers()
+				local targetPlayer = nearestPlayers()
 				
-				if userStatus then
-				TriggerServerEvent("tackle:Update",GetPlayerServerId(userStatus))
-					tackleSystem = 15
+				if targetPlayer then
+					-- Trigger server event to notify target player
+					TriggerServerEvent("tackle:Update", GetPlayerServerId(targetPlayer))
+					tackleSystem = 15  -- Set cooldown timer
 
+					-- Execute tackle animation if not already ragdolled
 					if not IsPedRagdoll(ped) then
 						RequestAnimDict(dict)
 						while not HasAnimDictLoaded(dict) do
 							Citizen.Wait(1)
 						end
 
-						if IsEntityPlayingAnim(ped,dict,anim,3) then
-							ClearPedSecondaryTask(ped)
-						else
-							
-
-							vRP._playAnim(false,{"missmic2ig_11","mic_2_ig_11_intro_goon"},false)
-							AttachEntityToEntity(PlayerPedId(),pedInFront,11816,0.25,0.5,0.0,0.5,0.5,180.0,false,false,false,false,2,false)
-							local tackleSeconds = 3
-							while tackleSeconds > 0 do
-								Citizen.Wait(100)
-								tackleSeconds = tackleSeconds - 1
-							end
-							
-							
-							
+						if not IsEntityPlayingAnim(ped, dict, anim, 3) then
+							TaskPlayAnim(ped, dict, anim, 8.0, 8.0, 3000, 0, 0, false, false, false)
 							Citizen.Wait(3000)
-							
-							vRP.stopAnim(false)							
-							
-							DetachEntity(ped,true,false)
-							ClearPedSecondaryTask(ped)
-							
+							ClearPedTasks(ped)
 						end
 					end
 				end
@@ -65,46 +48,53 @@ Citizen.CreateThread(function()
 		Citizen.Wait(timeDistance)
 	end
 end)
------------------------------------------------------------------------------------------------------------------------------------------
--- TACKLE:PLAYER
------------------------------------------------------------------------------------------------------------------------------------------
+-- Event handler for when player gets tackled
 RegisterNetEvent("tackle:Player")
-AddEventHandler("tackle:Player",function()
-	vRP._playAnim(false,{"missmic2ig_11","mic_2_ig_11_intro_p_one"},false)
+AddEventHandler("tackle:Player", function()
+	local ped = PlayerPedId()
+	
+	-- Load and play victim animation
+	RequestAnimDict(dict)
+	while not HasAnimDictLoaded(dict) do
+		Citizen.Wait(1)
+	end
+	
+	TaskPlayAnim(ped, dict, anim2, 8.0, 8.0, -1, 0, 0, false, false, false)
 	Citizen.Wait(3000)
-	TriggerServerEvent("inventory:Cancel")
-	vRP.stopAnim(false)
-	SetPedToRagdoll(PlayerPedId(),5000,5000,0,0,0,0)
-	tackleSystem = 3
+	ClearPedTasks(ped)
+	
+	-- Make player ragdoll for 5 seconds
+	SetPedToRagdoll(ped, 5000, 5000, 0, 0, 0, 0)
+	tackleSystem = 3  -- Set short cooldown
 end)
------------------------------------------------------------------------------------------------------------------------------------------
--- loop timer 
------------------------------------------------------------------------------------------------------------------------------------------
+-- Cooldown timer management
 Citizen.CreateThread(function()
 	while true do
 		if tackleSystem > 0 then
 			tackleSystem = tackleSystem - 1
 		end
-
-		Citizen.Wait(1000)
+		Citizen.Wait(1000)  -- Decrease timer every second
 	end
 end)
------------------------------------------------------------------------------------------------------------------------------------------
--- NEARESTPLAYERS
------------------------------------------------------------------------------------------------------------------------------------------
+-- Find nearest player within tackle range
 function nearestPlayers()
     local ped = PlayerPedId()
     local nearestPlayer = false
     local listPlayers = GetPlayers()
-    local coords = GetOffsetFromEntityInWorldCoords(ped,0.0,1.25,0.0)
+    local coords = GetOffsetFromEntityInWorldCoords(ped, 0.0, 1.25, 0.0)
 
-    for _,v in ipairs(listPlayers) do
-        local uPlayer = GetPlayerPed(v)
-        if uPlayer ~= ped and not IsPedInAnyVehicle(uPlayer) then
-            local uCoords = GetEntityCoords(uPlayer)
-            local distance = #(coords - uCoords)
+    for _, playerId in ipairs(listPlayers) do
+        local targetPed = GetPlayerPed(playerId)
+        
+        -- Check if target is valid (not self, not in vehicle)
+        if targetPed ~= ped and not IsPedInAnyVehicle(targetPed) then
+            local targetCoords = GetEntityCoords(targetPed)
+            local distance = #(coords - targetCoords)
+            
+            -- Check if within tackle range (1.25 units)
             if distance <= 1.25 then
-                nearestPlayer = v
+                nearestPlayer = playerId
+                break
             end
         end
     end
@@ -112,60 +102,13 @@ function nearestPlayers()
     return nearestPlayer
 end
 
------------------------------------------------------------------------------------------------------------------------------------------
--- GET CLOSEST PLAYER
------------------------------------------------------------------------------------------------------------------------------------------
-function GetClosestPlayer()
-    local ped = PlayerPedId()
-    local pedCoords = GetEntityCoords(ped,0)
-    local closestDistance = -1
-    local closestPlayer = -1
-
-    for _,v in pairs(GetActivePlayers()) do
-        if GetPlayerPed(v) ~= ped then
-            local targetCoords = GetEntityCoords(GetPlayerPed(v),0)
-            local distance = GetDistanceBetweenCoords(targetCoords["x"],targetCoords["y"],targetCoords["z"],pedCoords["x"],pedCoords["y"],pedCoords["z"],true)
-            if closestDistance == -1 or closestDistance > distance then
-                closestPlayer = GetPlayerServerId(v)
-                closestDistance = distance
-            end
-        end
-    end
-
-    return { playerid = closestPlayer, distance = closestDistance }
-end
-
-function GetClosestPlayer2()
-    local players = GetPlayers()
-    local closestDistance = -1
-    local closestPlayer = -1
-    local ply = PlayerPedId()
-    local plyCoords = GetEntityCoords(ply, 0)
-
-    for index, value in ipairs(players) do
-        local target = GetPlayerPed(value)
-        if (target ~= ply) then
-            local targetCoords = GetEntityCoords(GetPlayerPed(value), 0)
-            local distance = GetDistanceBetweenCoords(targetCoords["x"], targetCoords["y"], targetCoords["z"],
-                plyCoords["x"], plyCoords["y"], plyCoords["z"], true)
-            if (closestDistance == -1 or closestDistance > distance) then
-                closestPlayer = value
-                closestDistance = distance
-            end
-        end
-    end
-    return closestPlayer, closestDistance
-end
-
------------------------------------------------------------------------------------------------------------------------------------------
--- GETPLAYERS
------------------------------------------------------------------------------------------------------------------------------------------
+-- Get all active players in server
 function GetPlayers()
     local pedList = {}
-
-    for k,v in ipairs(GetActivePlayers()) do
-        table.insert(pedList,v)
+    
+    for _, playerId in ipairs(GetActivePlayers()) do
+        table.insert(pedList, playerId)
     end
-
+    
     return pedList
 end
