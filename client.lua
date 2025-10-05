@@ -70,11 +70,6 @@ RegisterNetEvent("tackle:Player")
 AddEventHandler("tackle:Player", function(tacklerSpeed, tackleDirection)
 	local ped = PlayerPedId()
 	
-	-- Calculate tackle strength based on tackler's speed (min 3 seconds, max 7 seconds)
-	local baseRagdollTime = 3000
-	local speedMultiplier = (tacklerSpeed or 5.0) / 5.0  -- Normalize speed
-	local ragdollDuration = math.min(7000, baseRagdollTime + (speedMultiplier * 2000))
-	
 	-- Load and play victim animation
 	RequestAnimDict(dict)
 	while not HasAnimDictLoaded(dict) do
@@ -93,10 +88,10 @@ AddEventHandler("tackle:Player", function(tacklerSpeed, tackleDirection)
 	PlaySoundFrontend(-1, "PLAYER_DEATH", "HUD_FRONTEND_MP_COLLECTABLE_SOUNDS", true)
 	ShakeGameplayCam("SMALL_EXPLOSION_SHAKE", 0.5)  -- Screen shake on impact
 	
-	-- Wait for animation to complete
+	-- Wait for animation to complete (3 seconds)
 	Citizen.Wait(3000)
 	
-	-- Clear animation and restore movement
+	-- Clear animation and restore collision
 	ClearPedTasks(ped)
 	FreezeEntityPosition(ped, false)
 	SetEntityCollision(ped, true, true)
@@ -104,35 +99,37 @@ AddEventHandler("tackle:Player", function(tacklerSpeed, tackleDirection)
 	
 	-- Apply directional physics if tackle direction is provided
 	if tackleDirection then
-		local pushForce = speedMultiplier * 2.5  -- Scale force by speed
+		local speedMultiplier = (tacklerSpeed or 5.0) / 5.0
+		local pushForce = speedMultiplier * 2.5
 		ApplyForceToEntity(ped, 1, tackleDirection.x * pushForce, tackleDirection.y * pushForce, 0.5, 0.0, 0.0, 0.0, false, true, true, true, false, true)
 	end
 	
-	-- Make player ragdoll with variable duration based on tackle strength
-	SetPedToRagdoll(ped, ragdollDuration, ragdollDuration, 0, 0, 0, 0)
-	
 	-- Show impact notification
-	SetNotificationTextEntry("STRING")
-	AddTextComponentString("~r~You've been tackled!")
-	DrawNotification(false, false)
+	BeginTextCommandThefeedPost("STRING")
+	AddTextComponentSubstringPlayerName("~r~You've been tackled! ~o~Stunned for 10 seconds...")
+	EndTextCommandThefeedPostTicker(true, true)
 	
-	-- Stun system: Disable controls during ragdoll to prevent instant recovery
-	local stunStartTime = GetGameTimer()
-	local stunEndTime = stunStartTime + ragdollDuration
+	-- PHASE 1: Keep on ground for 5 seconds (ragdoll phase)
+	local groundPhaseStart = GetGameTimer()
+	local groundPhaseEnd = groundPhaseStart + 5000  -- 5 seconds on ground
+	
+	SetPedToRagdoll(ped, 5000, 5000, 0, 0, 0, 0)
 	
 	Citizen.CreateThread(function()
-		while GetGameTimer() < stunEndTime do
-			local timeLeft = stunEndTime - GetGameTimer()
+		while GetGameTimer() < groundPhaseEnd do
+			local timeLeft = groundPhaseEnd - GetGameTimer()
 			
-			-- Keep player in ragdoll state
-			if not IsPedRagdoll(ped) and timeLeft > 500 then
+			-- Force player to stay ragdolled on ground
+			if not IsPedRagdoll(ped) and timeLeft > 100 then
 				SetPedToRagdoll(ped, timeLeft, timeLeft, 0, 0, 0, 0)
 			end
 			
-			-- Disable movement controls during stun
+			-- Disable ALL controls during ground phase
 			DisableControlAction(0, 21, true)   -- Sprint
 			DisableControlAction(0, 22, true)   -- Jump
 			DisableControlAction(0, 23, true)   -- Enter vehicle
+			DisableControlAction(0, 24, true)   -- Attack
+			DisableControlAction(0, 25, true)   -- Aim
 			DisableControlAction(0, 36, true)   -- Ctrl (duck)
 			DisableControlAction(0, 44, true)   -- Cover
 			DisableControlAction(0, 140, true)  -- Melee attack light
@@ -144,6 +141,55 @@ AddEventHandler("tackle:Player", function(tacklerSpeed, tackleDirection)
 			
 			Citizen.Wait(0)
 		end
+		
+		-- PHASE 2: After getting up, stun for additional 5 seconds
+		local stunPhaseStart = GetGameTimer()
+		local stunPhaseEnd = stunPhaseStart + 5000  -- 5 more seconds stunned
+		
+		-- Notification for stun phase
+		BeginTextCommandThefeedPost("STRING")
+		AddTextComponentSubstringPlayerName("~o~Getting up... Still stunned for 5 seconds")
+		EndTextCommandThefeedPostTicker(true, true)
+		
+		-- Make player walk slowly and disable actions
+		while GetGameTimer() < stunPhaseEnd do
+			local timeLeft = math.ceil((stunPhaseEnd - GetGameTimer()) / 1000)
+			
+			-- Slow movement during stun
+			SetPedMoveRateOverride(ped, 0.5)  -- 50% movement speed
+			
+			-- Disable combat and actions during stun phase
+			DisableControlAction(0, 21, true)   -- Sprint (can't sprint)
+			DisableControlAction(0, 22, true)   -- Jump (can't jump)
+			DisableControlAction(0, 23, true)   -- Enter vehicle
+			DisableControlAction(0, 24, true)   -- Attack
+			DisableControlAction(0, 25, true)   -- Aim
+			DisableControlAction(0, 44, true)   -- Cover
+			DisableControlAction(0, 140, true)  -- Melee attack light
+			DisableControlAction(0, 141, true)  -- Melee attack heavy
+			DisableControlAction(0, 142, true)  -- Melee attack alternate
+			DisableControlAction(0, 257, true)  -- Attack 2
+			DisableControlAction(0, 263, true)  -- Melee attack
+			DisableControlAction(0, 264, true)  -- Melee attack alternate
+			
+			-- Show countdown every second
+			if GetGameTimer() % 1000 < 50 then
+				SetTextComponentFormat("STRING")
+				AddTextComponentString("~o~Stunned: ~r~" .. timeLeft .. "s")
+				DisplayHelpTextFromStringLabel(0, 0, 1, -1)
+			end
+			
+			Citizen.Wait(0)
+		end
+		
+		-- Restore normal movement speed
+		SetPedMoveRateOverride(ped, 1.0)
+		
+		-- Final notification
+		BeginTextCommandThefeedPost("STRING")
+		AddTextComponentSubstringPlayerName("~g~You've recovered from the tackle!")
+		EndTextCommandThefeedPostTicker(true, true)
+		PlaySoundFrontend(-1, "CHECKPOINT_PERFECT", "HUD_MINI_GAME_SOUNDSET", true)
 	end)
 	
 	tackleSystem = 3  -- Set short cooldown

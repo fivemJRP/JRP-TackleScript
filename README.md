@@ -4,7 +4,7 @@
 
 ![FiveM](https://img.shields.io/badge/FiveM-Compatible-blue?style=for-the-badge&logo=fivem)
 ![Lua](https://img.shields.io/badge/Lua-5.4-blue?style=for-the-badge&logo=lua)
-![Version](https://img.shields.io/badge/Version-2.0.0-green?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-2.5.0-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
 *A standalone tackle script for FiveM developed by JGN Development for JRP Server*
@@ -25,20 +25,21 @@
 ## 🎯 Features
 
 ✅ **Standalone** - No framework dependencies  
+✅ **Two-phase stun system** - 5 seconds on ground + 5 seconds stunned recovery  
+✅ **E key activation** - Simple press while running to tackle  
 ✅ **Synchronized animations** - Locked, uninterruptible tackle sequences  
 ✅ **Movement protection** - Players frozen during animations to prevent glitches  
 ✅ **Dynamic physics** - Directional tackles based on tackler momentum  
-✅ **Variable strength** - Tackle power scales with running speed  
-✅ **Forced stun system** - Victims stay down for full duration (no instant recovery)  
-✅ **Control disabling** - Movement locked during stun period  
+✅ **Real-time countdown** - Visual stun timer for victims  
+✅ **Movement impairment** - 50% speed reduction during recovery phase  
+✅ **Forced ground time** - Victims cannot get up for 5 seconds  
 ✅ **Sound effects** - Native GTA impact sounds for immersion  
 ✅ **Screen shake** - Camera shake on impact for victims  
-✅ **UI notifications** - Alert when tackled  
-✅ **Smooth animations** - Realistic tackle mechanics with proper timing  
-✅ **Cooldown system** - Prevents tackle spam  
-✅ **Range detection** - Proximity-based tackling  
+✅ **UI notifications** - Detailed feedback throughout tackle sequence  
 ✅ **Permission system** - ACE permission controlled (VIP+ exclusive)  
 ✅ **Custom notifications** - Styled permission denial messages  
+✅ **Cooldown system** - Prevents tackle spam  
+✅ **Range detection** - Proximity-based tackling  
 ✅ **Performance optimized** - Efficient code structure  
 ✅ **Easy to install** - Plug and play  
 
@@ -64,26 +65,41 @@
 ## 🎮 Usage
 
 ### Controls
-- **E Key** - Tackle nearby players (while running/sprinting)
+
+**E Key (While Running/Sprinting)**
+- Press **E** while running or sprinting near a player to tackle
 
 ### Requirements
 - Player must be running or sprinting
 - Target player must be within 1.25 units
 - Cooldown timer must be ready
 - Player must not be swimming
+- Must have VIP+ permission
 
-### Animation System
-- **Synchronized Playback** - Both players locked during 3-second animation
-- **Movement Prevention** - Players frozen to prevent animation interruption
-- **Collision Management** - Temporary collision disable for smooth animations
-- **Ragdoll Protection** - Victim can't ragdoll until animation completes
+### Stun System Timeline
 
-### Impact Effects
-- **Sound Effects** - Native GTA audio for tackle and impact sounds
-- **Screen Shake** - Camera shake for victim on impact
-- **Physics System** - Directional force applied based on tackle direction
-- **Variable Strength** - Ragdoll duration (3-7 seconds) based on tackler speed
-- **UI Notifications** - Visual feedback when tackled
+```
+🎬 TACKLE IMPACT (0-3s)
+├─ Animation plays
+├─ Screen shake + impact sound
+└─ "You've been tackled! Stunned for 10 seconds..."
+
+💥 PHASE 1: ON GROUND (3-8s = 5 seconds)
+├─ Forced ragdoll on ground
+├─ Cannot move, jump, or stand
+├─ All controls disabled
+└─ Continuous enforcement
+
+🚶 PHASE 2: STUNNED RECOVERY (8-13s = 5 seconds)
+├─ Player gets up automatically
+├─ 50% movement speed
+├─ Cannot sprint, jump, or attack
+├─ Real-time countdown: "Stunned: 5s... 4s... 3s..."
+└─ "Getting up... Still stunned for 5 seconds"
+
+✅ FULL RECOVERY (13s)
+└─ "You've recovered from the tackle!" + success sound
+```
 
 ## 🔧 Configuration
 
@@ -155,6 +171,7 @@ TaskPlayAnim(ped, dict, anim, 8.0, 8.0, 3000, 1, 0, false, false, false)  -- For
 -- Sound effects (native GTA)
 PlaySoundFrontend(-1, "TENNIS_POINT_WON", "HUD_AWARDS", true)  -- Tackler sound
 PlaySoundFrontend(-1, "PLAYER_DEATH", "HUD_FRONTEND_MP_COLLECTABLE_SOUNDS", true)  -- Victim sound
+PlaySoundFrontend(-1, "CHECKPOINT_PERFECT", "HUD_MINI_GAME_SOUNDSET", true)  -- Recovery sound
 
 -- Screen shake for victim
 ShakeGameplayCam("SMALL_EXPLOSION_SHAKE", 0.5)
@@ -162,9 +179,31 @@ ShakeGameplayCam("SMALL_EXPLOSION_SHAKE", 0.5)
 -- Directional physics
 ApplyForceToEntity(ped, 1, tackleDirection.x * force, tackleDirection.y * force, 0.5, ...)
 
--- Variable ragdoll time based on speed
-local ragdollDuration = math.min(7000, 3000 + (speedMultiplier * 2000))
+-- Two-phase stun system
+-- Phase 1: 5 seconds on ground (forced ragdoll)
+SetPedToRagdoll(ped, 5000, 5000, 0, 0, 0, 0)
+
+-- Phase 2: 5 seconds stunned (50% speed, no sprint/jump)
+SetPedMoveRateOverride(ped, 0.5)  -- Slow movement
+
+-- Real-time countdown display
+DisplayHelpTextFromStringLabel("~o~Stunned: ~r~" .. timeLeft .. "s")
 ```
+
+### Technical Specifications
+
+| Specification | Value | Description |
+|--------------|-------|-------------|
+| **Detection Range** | 1.25 units (~1.5m) | Maximum distance to tackle |
+| **Animation Duration** | 3 seconds | Tackle animation time |
+| **Phase 1: Ground** | 5 seconds | Forced ragdoll, cannot stand |
+| **Phase 2: Stun** | 5 seconds | 50% speed, no sprint/jump |
+| **Total Incapacitation** | 13 seconds | Full tackle sequence |
+| **Tackler Cooldown** | 15 seconds | Time between tackles |
+| **Target Cooldown** | 3 seconds | Victim's short cooldown |
+| **Movement Reduction** | 50% | Speed during recovery |
+| **Activation** | E Key | While running/sprinting |
+| **Permission** | jrp.tackle | ACE permission node |
 
 ## 📈 Before vs After
 
@@ -193,7 +232,7 @@ TriggerServerEvent("inventory:Cancel")
 <td>
 
 ```lua
--- Synchronized Native GTA functions with physics
+-- Synchronized Native GTA functions with two-phase stun
 FreezeEntityPosition(ped, true)  -- Lock players during animation
 TaskPlayAnim(ped, dict, anim, 8.0, 8.0, 3000, 1, 0, false, false, false)
 
@@ -202,8 +241,13 @@ PlaySoundFrontend(-1, "TENNIS_POINT_WON", "HUD_AWARDS", true)
 ShakeGameplayCam("SMALL_EXPLOSION_SHAKE", 0.5)
 ApplyForceToEntity(ped, 1, tackleDirection.x * force, tackleDirection.y * force, 0.5, ...)
 
--- Variable strength system
-local ragdollDuration = 3000 + (speedMultiplier * 2000)  -- 3-7 seconds
+-- Two-phase stun system (10 seconds total)
+-- Phase 1: 5 seconds forced on ground
+SetPedToRagdoll(ped, 5000, 5000, 0, 0, 0, 0)
+
+-- Phase 2: 5 seconds stunned recovery
+SetPedMoveRateOverride(ped, 0.5)  -- 50% speed
+-- Real-time countdown + control disabling
 
 -- Standalone operation with full physics
 -- No external dependencies, all native GTA
@@ -218,15 +262,17 @@ local ragdollDuration = 3000 + (speedMultiplier * 2000)  -- 3-7 seconds
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
 | **Dependencies** | VRP Framework Required | ❌ None | ✅ 100% Standalone |
-| **Code Lines** | ~150 lines | ~145 lines | ✅ Optimized |
+| **Code Lines** | ~150 lines | ~280 lines | ✅ Feature-Rich |
 | **Unused Functions** | 2 (GetClosestPlayer) | 0 | ✅ Cleaned Up |
 | **Animation Handling** | VRP Wrapper | Synchronized Native | ✅ More Efficient |
 | **Animation Sync** | ❌ Interruptible | ✅ Locked & Protected | ✅ 100% Reliable |
 | **Movement Issues** | ❌ Animation Glitches | ✅ Freeze Protection | ✅ Problem Solved |
 | **Impact Feedback** | ❌ None | ✅ Sound + Screen Shake | ✅ Immersive |
 | **Physics** | ❌ Static | ✅ Dynamic Directional | ✅ Realistic |
-| **Tackle Strength** | ❌ Fixed | ✅ Speed-Based (3-7s) | ✅ Variable |
+| **Tackle Strength** | ❌ Fixed | ✅ Two-Phase Stun (10s) | ✅ Balanced |
 | **Permissions** | ❌ None | ✅ ACE Permission System | ✅ VIP Control |
+| **Stun System** | ❌ Instant Recovery | ✅ 5s Ground + 5s Stunned | ✅ Realistic |
+| **Visual Feedback** | ❌ None | ✅ Real-time Countdown | ✅ User-Friendly |
 
 ## 🛠️ Changes Made
 
@@ -245,18 +291,22 @@ local ragdollDuration = 3000 + (speedMultiplier * 2000)  -- 3-7 seconds
 - ✅ Enhanced animation control flags (force playback)
 - ✅ Collision management during tackle sequences
 - ✅ Ragdoll protection until animation completion
-- ✅ **Dynamic directional physics based on tackle momentum**
-- ✅ **Variable tackle strength (3-7 seconds) based on speed**
-- ✅ **Native GTA sound effects for tackler and victim**
-- ✅ **Screen shake camera effect on impact**
-- ✅ **UI notifications for tackle feedback**
-- ✅ **Force application in tackle direction**
-- ✅ **Forced stun system to prevent instant recovery**
-- ✅ **Control disabling during ragdoll period**
-- ✅ **Server-side input validation and security checks**
-- ✅ **ACE permission system for VIP control**
-- ✅ **Custom styled permission denial notifications**
-- ✅ **Server-side permission validation**
+- ✅ **Two-phase stun system (5s ground + 5s recovery)**
+- ✅ **Real-time countdown timer for victims**
+- ✅ **Movement speed reduction (50%) during recovery**
+- ✅ **Forced ground enforcement (cannot get up for 5s)**
+- ✅ **E key activation while running**
+- ✅ Dynamic directional physics based on tackle momentum
+- ✅ Native GTA sound effects for tackler and victim
+- ✅ Screen shake camera effect on impact
+- ✅ UI notifications for tackle feedback
+- ✅ Force application in tackle direction
+- ✅ Forced stun system to prevent instant recovery
+- ✅ Control disabling during ragdoll period
+- ✅ Server-side input validation and security checks
+- ✅ ACE permission system for VIP control
+- ✅ Custom styled permission denial notifications
+- ✅ Server-side permission validation
 - ✅ Native GTA animation functions
 - ✅ Clean, descriptive comments
 - ✅ JGN Development branding
@@ -272,29 +322,6 @@ local ragdollDuration = 3000 + (speedMultiplier * 2000)  -- 3-7 seconds
 - 🔄 Improved animation reliability with movement freezing
 - 🔄 Enhanced code readability
 - 🔄 Streamlined server-client communication
-
-## 🎬 Animation System Details
-
-### **Synchronized Tackle Mechanics**
-- **Player Freezing**: Both tackler and victim are frozen during 3-second animation
-- **Movement Protection**: Prevents input interference with animations
-- **Collision Management**: Temporary collision disable for smooth sequences
-- **Force Playback**: Animation flag `1` ensures complete animation playback
-- **Ragdoll Control**: Victim protected from early ragdolling during animation
-
-### **Technical Specifications**
-- **Detection Range**: 1.25 game units (approximately 1.5 meters)
-- **Animation Duration**: 3 seconds (synchronized & locked)
-- **Freeze Duration**: 3 seconds (prevents movement during animation)
-- **Ragdoll Time**: 3-7 seconds (variable based on tackler speed)
-- **Stun Duration**: Full ragdoll time (prevents instant recovery)
-- **Control Lock**: Sprint, jump, melee attacks disabled during stun
-- **Tackler Cooldown**: 15 seconds
-- **Target Cooldown**: 3 seconds
-- **Animation Protection**: 100% interruption prevention
-- **Physics**: Directional force based on tackle momentum
-- **Sound Effects**: Native GTA audio (TENNIS_POINT_WON, PLAYER_DEATH)
-- **Camera Shake**: SMALL_EXPLOSION_SHAKE intensity 0.5
 
 ## 📁 File Structure
 
@@ -339,14 +366,26 @@ We welcome contributions! Please feel free to submit a Pull Request.
 
 ## ❓ FAQ
 
+### How do I tackle someone?
+Run or sprint toward a player and press **E** when you're close (within 1.5 meters).
+
 ### How do I give tackle permission to players?
 Add the ACE permission `jrp.tackle` to their group or identifier in `server.cfg`:
 ```cfg
 add_ace group.vip jrp.tackle allow
 ```
 
+### How long does the stun last?
+Total of **13 seconds**:
+- 3 seconds: Tackle animation
+- 5 seconds: Forced on ground (ragdoll)
+- 5 seconds: Stunned recovery (50% speed, no sprint/jump)
+
+### Can victims get up early?
+No! The script **forces them to stay down** for the full 5-second ground phase. If they try to get up, they're immediately put back into ragdoll.
+
 ### Can I change the permission denial message?
-Yes! Edit `client.lua` around line ~95 in the `tackle:PermissionDenied` event handler.
+Yes! Edit `client.lua` around line ~150 in the `tackle:PermissionDenied` event handler.
 
 ### How do I make it available to everyone?
 Add this to your `server.cfg`:
@@ -359,6 +398,14 @@ Yes, change `jrp.tackle` to your desired name in both `server.lua` and your ACE 
 
 ### What if someone tries to tackle without permission?
 They'll see a styled notification with your custom VIP message and an error sound will play. The tackle won't execute.
+
+### Can I adjust the stun duration?
+Yes! Edit the values in `client.lua`:
+- Ground phase: Line ~103 `groundPhaseEnd = groundPhaseStart + 5000` (5000 = 5 seconds)
+- Stun phase: Line ~127 `stunPhaseEnd = stunPhaseStart + 5000` (5000 = 5 seconds)
+
+### Why do I see a countdown timer?
+During the recovery phase (last 5 seconds), victims see a countdown showing how much stun time is left: "Stunned: 5s... 4s... 3s..."
 
 ## 👥 Credits
 
