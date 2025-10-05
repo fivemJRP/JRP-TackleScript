@@ -29,12 +29,16 @@
 ✅ **Movement protection** - Players frozen during animations to prevent glitches  
 ✅ **Dynamic physics** - Directional tackles based on tackler momentum  
 ✅ **Variable strength** - Tackle power scales with running speed  
+✅ **Forced stun system** - Victims stay down for full duration (no instant recovery)  
+✅ **Control disabling** - Movement locked during stun period  
 ✅ **Sound effects** - Native GTA impact sounds for immersion  
 ✅ **Screen shake** - Camera shake on impact for victims  
 ✅ **UI notifications** - Alert when tackled  
 ✅ **Smooth animations** - Realistic tackle mechanics with proper timing  
 ✅ **Cooldown system** - Prevents tackle spam  
 ✅ **Range detection** - Proximity-based tackling  
+✅ **Permission system** - ACE permission controlled (VIP+ exclusive)  
+✅ **Custom notifications** - Styled permission denial messages  
 ✅ **Performance optimized** - Efficient code structure  
 ✅ **Easy to install** - Plug and play  
 
@@ -46,7 +50,16 @@
    ```cfg
    ensure JRP-TackleScript
    ```
-4. **Restart** your server
+4. **Configure permissions** in your `server.cfg`:
+   ```cfg
+   # Grant tackle permission to VIP+ players
+   add_ace group.vip jrp.tackle allow
+   add_ace group.admin jrp.tackle allow
+   
+   # Or grant to all players (not recommended for VIP exclusive)
+   # add_ace builtin.everyone jrp.tackle allow
+   ```
+5. **Restart** your server
 
 ## 🎮 Usage
 
@@ -73,6 +86,48 @@
 - **UI Notifications** - Visual feedback when tackled
 
 ## 🔧 Configuration
+
+### Permission System
+
+The tackle script uses ACE permissions to control who can tackle.
+
+**Permission Node:** `jrp.tackle`
+
+#### Grant to Specific Groups:
+```cfg
+# VIP+ Donators
+add_ace group.vip jrp.tackle allow
+add_ace group.vipplus jrp.tackle allow
+
+# Admins/Moderators
+add_ace group.admin jrp.tackle allow
+add_ace group.mod jrp.tackle allow
+```
+
+#### Grant to Individual Players:
+```cfg
+# By Steam ID
+add_ace identifier.steam:110000XXXXXXXX jrp.tackle allow
+
+# By License
+add_ace identifier.license:XXXXXXXXXXXXXXXX jrp.tackle allow
+```
+
+#### Grant to Everyone (Not Recommended for VIP Exclusive):
+```cfg
+add_ace builtin.everyone jrp.tackle allow
+```
+
+### Permission Denial Message
+
+Players without permission will see:
+```
+⚠️ ACCESS DENIED
+JRP VIP+ Donator rank required
+Visit store.jrpserver.com to unlock!
+```
+
+You can customize this message in `client.lua` line ~95
 
 ### Animation Settings
 ```lua
@@ -171,6 +226,7 @@ local ragdollDuration = 3000 + (speedMultiplier * 2000)  -- 3-7 seconds
 | **Impact Feedback** | ❌ None | ✅ Sound + Screen Shake | ✅ Immersive |
 | **Physics** | ❌ Static | ✅ Dynamic Directional | ✅ Realistic |
 | **Tackle Strength** | ❌ Fixed | ✅ Speed-Based (3-7s) | ✅ Variable |
+| **Permissions** | ❌ None | ✅ ACE Permission System | ✅ VIP Control |
 
 ## 🛠️ Changes Made
 
@@ -195,6 +251,12 @@ local ragdollDuration = 3000 + (speedMultiplier * 2000)  -- 3-7 seconds
 - ✅ **Screen shake camera effect on impact**
 - ✅ **UI notifications for tackle feedback**
 - ✅ **Force application in tackle direction**
+- ✅ **Forced stun system to prevent instant recovery**
+- ✅ **Control disabling during ragdoll period**
+- ✅ **Server-side input validation and security checks**
+- ✅ **ACE permission system for VIP control**
+- ✅ **Custom styled permission denial notifications**
+- ✅ **Server-side permission validation**
 - ✅ Native GTA animation functions
 - ✅ Clean, descriptive comments
 - ✅ JGN Development branding
@@ -225,6 +287,8 @@ local ragdollDuration = 3000 + (speedMultiplier * 2000)  -- 3-7 seconds
 - **Animation Duration**: 3 seconds (synchronized & locked)
 - **Freeze Duration**: 3 seconds (prevents movement during animation)
 - **Ragdoll Time**: 3-7 seconds (variable based on tackler speed)
+- **Stun Duration**: Full ragdoll time (prevents instant recovery)
+- **Control Lock**: Sprint, jump, melee attacks disabled during stun
 - **Tackler Cooldown**: 15 seconds
 - **Target Cooldown**: 3 seconds
 - **Animation Protection**: 100% interruption prevention
@@ -272,6 +336,29 @@ We welcome contributions! Please feel free to submit a Pull Request.
 - Add comments for new functionality  
 - Test thoroughly before submitting
 - Update documentation as needed
+
+## ❓ FAQ
+
+### How do I give tackle permission to players?
+Add the ACE permission `jrp.tackle` to their group or identifier in `server.cfg`:
+```cfg
+add_ace group.vip jrp.tackle allow
+```
+
+### Can I change the permission denial message?
+Yes! Edit `client.lua` around line ~95 in the `tackle:PermissionDenied` event handler.
+
+### How do I make it available to everyone?
+Add this to your `server.cfg`:
+```cfg
+add_ace builtin.everyone jrp.tackle allow
+```
+
+### Can I change the permission node name?
+Yes, change `jrp.tackle` to your desired name in both `server.lua` and your ACE permission config.
+
+### What if someone tries to tackle without permission?
+They'll see a styled notification with your custom VIP message and an error sound will play. The tackle won't execute.
 
 ## 👥 Credits
 

@@ -116,7 +116,53 @@ AddEventHandler("tackle:Player", function(tacklerSpeed, tackleDirection)
 	AddTextComponentString("~r~You've been tackled!")
 	DrawNotification(false, false)
 	
+	-- Stun system: Disable controls during ragdoll to prevent instant recovery
+	local stunStartTime = GetGameTimer()
+	local stunEndTime = stunStartTime + ragdollDuration
+	
+	Citizen.CreateThread(function()
+		while GetGameTimer() < stunEndTime do
+			local timeLeft = stunEndTime - GetGameTimer()
+			
+			-- Keep player in ragdoll state
+			if not IsPedRagdoll(ped) and timeLeft > 500 then
+				SetPedToRagdoll(ped, timeLeft, timeLeft, 0, 0, 0, 0)
+			end
+			
+			-- Disable movement controls during stun
+			DisableControlAction(0, 21, true)   -- Sprint
+			DisableControlAction(0, 22, true)   -- Jump
+			DisableControlAction(0, 23, true)   -- Enter vehicle
+			DisableControlAction(0, 36, true)   -- Ctrl (duck)
+			DisableControlAction(0, 44, true)   -- Cover
+			DisableControlAction(0, 140, true)  -- Melee attack light
+			DisableControlAction(0, 141, true)  -- Melee attack heavy
+			DisableControlAction(0, 142, true)  -- Melee attack alternate
+			DisableControlAction(0, 257, true)  -- Attack 2
+			DisableControlAction(0, 263, true)  -- Melee attack
+			DisableControlAction(0, 264, true)  -- Melee attack alternate
+			
+			Citizen.Wait(0)
+		end
+	end)
+	
 	tackleSystem = 3  -- Set short cooldown
+end)
+
+-- Event handler for permission denial
+RegisterNetEvent("tackle:PermissionDenied")
+AddEventHandler("tackle:PermissionDenied", function()
+	-- Play error sound
+	PlaySoundFrontend(-1, "ERROR", "HUD_FRONTEND_DEFAULT_SOUNDSET", true)
+	
+	-- Show custom notification with VIP requirement
+	SetNotificationTextEntry("STRING")
+	AddTextComponentString("~r~⚠️ ACCESS DENIED~s~\n~o~JRP VIP+ Donator~s~ rank required\n~y~Visit ~b~store.JusticeRP.xyz~s~ to unlock!")
+	SetNotificationMessage("CHAR_BLOCKED", "CHAR_BLOCKED", true, 1, "~r~Tackle System", "Permission Required")
+	DrawNotification(false, true)
+	
+	-- Reset cooldown since tackle didn't execute
+	tackleSystem = 0
 end)
 
 -- Cooldown timer management
