@@ -25,7 +25,14 @@
 ## 🎯 Features
 
 ✅ **Standalone** - No framework dependencies  
-✅ **Smooth animations** - Realistic tackle mechanics  
+✅ **Synchronized animations** - Locked, uninterruptible tackle sequences  
+✅ **Movement protection** - Players frozen during animations to prevent glitches  
+✅ **Dynamic physics** - Directional tackles based on tackler momentum  
+✅ **Variable strength** - Tackle power scales with running speed  
+✅ **Sound effects** - Native GTA impact sounds for immersion  
+✅ **Screen shake** - Camera shake on impact for victims  
+✅ **UI notifications** - Alert when tackled  
+✅ **Smooth animations** - Realistic tackle mechanics with proper timing  
 ✅ **Cooldown system** - Prevents tackle spam  
 ✅ **Range detection** - Proximity-based tackling  
 ✅ **Performance optimized** - Efficient code structure  
@@ -52,6 +59,19 @@
 - Cooldown timer must be ready
 - Player must not be swimming
 
+### Animation System
+- **Synchronized Playback** - Both players locked during 3-second animation
+- **Movement Prevention** - Players frozen to prevent animation interruption
+- **Collision Management** - Temporary collision disable for smooth animations
+- **Ragdoll Protection** - Victim can't ragdoll until animation completes
+
+### Impact Effects
+- **Sound Effects** - Native GTA audio for tackle and impact sounds
+- **Screen Shake** - Camera shake for victim on impact
+- **Physics System** - Directional force applied based on tackle direction
+- **Variable Strength** - Ragdoll duration (3-7 seconds) based on tackler speed
+- **UI Notifications** - Visual feedback when tackled
+
 ## 🔧 Configuration
 
 ### Animation Settings
@@ -65,6 +85,30 @@ local anim2 = "mic_2_ig_11_intro_p_one"   -- Target animation
 ```lua
 local tackleSystem = 0    -- Cooldown timer (15 seconds for tackler, 3 for target)
 local tackleRange = 1.25  -- Detection range in units
+```
+
+### Animation Control
+```lua
+-- Synchronized animation system
+FreezeEntityPosition(ped, true)      -- Lock player position
+SetEntityCollision(ped, false)       -- Disable collision during animation
+TaskPlayAnim(ped, dict, anim, 8.0, 8.0, 3000, 1, 0, false, false, false)  -- Force animation flag = 1
+```
+
+### Impact Effects
+```lua
+-- Sound effects (native GTA)
+PlaySoundFrontend(-1, "TENNIS_POINT_WON", "HUD_AWARDS", true)  -- Tackler sound
+PlaySoundFrontend(-1, "PLAYER_DEATH", "HUD_FRONTEND_MP_COLLECTABLE_SOUNDS", true)  -- Victim sound
+
+-- Screen shake for victim
+ShakeGameplayCam("SMALL_EXPLOSION_SHAKE", 0.5)
+
+-- Directional physics
+ApplyForceToEntity(ped, 1, tackleDirection.x * force, tackleDirection.y * force, 0.5, ...)
+
+-- Variable ragdoll time based on speed
+local ragdollDuration = math.min(7000, 3000 + (speedMultiplier * 2000))
 ```
 
 ## 📈 Before vs After
@@ -94,12 +138,20 @@ TriggerServerEvent("inventory:Cancel")
 <td>
 
 ```lua
--- Native GTA functions
-TaskPlayAnim(ped, dict, anim, 8.0, 8.0, 3000, 0, 0, false, false, false)
-ClearPedTasks(ped)
+-- Synchronized Native GTA functions with physics
+FreezeEntityPosition(ped, true)  -- Lock players during animation
+TaskPlayAnim(ped, dict, anim, 8.0, 8.0, 3000, 1, 0, false, false, false)
 
--- Standalone operation
--- No external dependencies
+-- Impact effects
+PlaySoundFrontend(-1, "TENNIS_POINT_WON", "HUD_AWARDS", true)
+ShakeGameplayCam("SMALL_EXPLOSION_SHAKE", 0.5)
+ApplyForceToEntity(ped, 1, tackleDirection.x * force, tackleDirection.y * force, 0.5, ...)
+
+-- Variable strength system
+local ragdollDuration = 3000 + (speedMultiplier * 2000)  -- 3-7 seconds
+
+-- Standalone operation with full physics
+-- No external dependencies, all native GTA
 ```
 
 </td>
@@ -111,9 +163,14 @@ ClearPedTasks(ped)
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
 | **Dependencies** | VRP Framework Required | ❌ None | ✅ 100% Standalone |
-| **Code Lines** | ~150 lines | ~120 lines | ✅ 20% Reduction |
+| **Code Lines** | ~150 lines | ~145 lines | ✅ Optimized |
 | **Unused Functions** | 2 (GetClosestPlayer) | 0 | ✅ Cleaned Up |
-| **Animation Handling** | VRP Wrapper | Native | ✅ More Efficient |
+| **Animation Handling** | VRP Wrapper | Synchronized Native | ✅ More Efficient |
+| **Animation Sync** | ❌ Interruptible | ✅ Locked & Protected | ✅ 100% Reliable |
+| **Movement Issues** | ❌ Animation Glitches | ✅ Freeze Protection | ✅ Problem Solved |
+| **Impact Feedback** | ❌ None | ✅ Sound + Screen Shake | ✅ Immersive |
+| **Physics** | ❌ Static | ✅ Dynamic Directional | ✅ Realistic |
+| **Tackle Strength** | ❌ Fixed | ✅ Speed-Based (3-7s) | ✅ Variable |
 
 ## 🛠️ Changes Made
 
@@ -127,6 +184,17 @@ ClearPedTasks(ped)
 - ❌ Excessive commenting
 
 ### ✅ Added
+- ✅ Synchronized animation system with movement protection
+- ✅ Player freezing during animations to prevent glitches
+- ✅ Enhanced animation control flags (force playback)
+- ✅ Collision management during tackle sequences
+- ✅ Ragdoll protection until animation completion
+- ✅ **Dynamic directional physics based on tackle momentum**
+- ✅ **Variable tackle strength (3-7 seconds) based on speed**
+- ✅ **Native GTA sound effects for tackler and victim**
+- ✅ **Screen shake camera effect on impact**
+- ✅ **UI notifications for tackle feedback**
+- ✅ **Force application in tackle direction**
 - ✅ Native GTA animation functions
 - ✅ Clean, descriptive comments
 - ✅ JGN Development branding
@@ -138,9 +206,31 @@ ClearPedTasks(ped)
 ### 🔄 Modified
 - 🔄 Updated fxmanifest.lua for standalone operation
 - 🔄 Simplified tackle detection logic
-- 🔄 Improved animation timing
+- 🔄 Enhanced animation timing with synchronization locks
+- 🔄 Improved animation reliability with movement freezing
 - 🔄 Enhanced code readability
 - 🔄 Streamlined server-client communication
+
+## 🎬 Animation System Details
+
+### **Synchronized Tackle Mechanics**
+- **Player Freezing**: Both tackler and victim are frozen during 3-second animation
+- **Movement Protection**: Prevents input interference with animations
+- **Collision Management**: Temporary collision disable for smooth sequences
+- **Force Playback**: Animation flag `1` ensures complete animation playback
+- **Ragdoll Control**: Victim protected from early ragdolling during animation
+
+### **Technical Specifications**
+- **Detection Range**: 1.25 game units (approximately 1.5 meters)
+- **Animation Duration**: 3 seconds (synchronized & locked)
+- **Freeze Duration**: 3 seconds (prevents movement during animation)
+- **Ragdoll Time**: 3-7 seconds (variable based on tackler speed)
+- **Tackler Cooldown**: 15 seconds
+- **Target Cooldown**: 3 seconds
+- **Animation Protection**: 100% interruption prevention
+- **Physics**: Directional force based on tackle momentum
+- **Sound Effects**: Native GTA audio (TENNIS_POINT_WON, PLAYER_DEATH)
+- **Camera Shake**: SMALL_EXPLOSION_SHAKE intensity 0.5
 
 ## 📁 File Structure
 
